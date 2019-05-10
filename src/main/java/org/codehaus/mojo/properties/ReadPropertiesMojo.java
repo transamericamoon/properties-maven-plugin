@@ -19,24 +19,16 @@ package org.codehaus.mojo.properties;
  * under the License.
  */
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.Enumeration;
-import java.util.Properties;
-
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.util.cli.CommandLineUtils;
+
+import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Properties;
 
 /**
  * The read-project-properties goal reads property files and URLs and stores the properties as project properties. It
@@ -49,18 +41,8 @@ import org.codehaus.plexus.util.cli.CommandLineUtils;
  */
 @Mojo( name = "read-project-properties", defaultPhase = LifecyclePhase.NONE, requiresProject = true, threadSafe = true )
 public class ReadPropertiesMojo
-    extends AbstractMojo
+    extends AbstractAddPropertiesMojo
 {
-    @Parameter( defaultValue = "${project}", readonly = true, required = true )
-    private MavenProject project;
-
-    @Parameter( defaultValue = "false", required = false )
-    private boolean useNestedPropertyResolver;
-
-    public void setUseNestedPropertyResolver(boolean useNestedPropertyResolver) {
-        this.useNestedPropertyResolver = useNestedPropertyResolver;
-    }
-
     /**
      * The properties files that will be used when reading properties.
      */
@@ -127,11 +109,6 @@ public class ReadPropertiesMojo
         this.keyPrefix = keyPrefix;
     }
 
-    /**
-     * Used for resolving property placeholders.
-     */
-    private IPropertyResolver resolver;
-
     /** {@inheritDoc} */
     public void execute()
         throws MojoExecutionException, MojoFailureException
@@ -142,11 +119,7 @@ public class ReadPropertiesMojo
 
         loadUrls();
 
-        if(useNestedPropertyResolver) {
-            resolver = new NestedPropertyResolver();
-        } else {
-            resolver = new PropertyResolver();
-        }
+        resolveProperties = true;
 
         resolveProperties();
     }
@@ -242,76 +215,7 @@ public class ReadPropertiesMojo
         }
     }
 
-    private void resolveProperties()
-        throws MojoExecutionException, MojoFailureException
-    {
-        Properties environment = loadSystemEnvironmentPropertiesWhenDefined();
-        Properties projectProperties = project.getProperties();
-
-        for ( Enumeration<?> n = projectProperties.propertyNames(); n.hasMoreElements(); )
-        {
-            String k = (String) n.nextElement();
-            projectProperties.setProperty( k, getPropertyValue( k, projectProperties, environment ) );
-        }
-    }
-
-    private Properties loadSystemEnvironmentPropertiesWhenDefined()
-        throws MojoExecutionException
-    {
-        Properties projectProperties = project.getProperties();
-
-        boolean useEnvVariables = false;
-        for ( Enumeration<?> n = projectProperties.propertyNames(); n.hasMoreElements(); )
-        {
-            String k = (String) n.nextElement();
-            String p = (String) projectProperties.get( k );
-            if ( p.indexOf( "${env." ) != -1 )
-            {
-                useEnvVariables = true;
-                break;
-            }
-        }
-        Properties environment = null;
-        if ( useEnvVariables )
-        {
-            try
-            {
-                environment = getSystemEnvVars();
-            }
-            catch ( IOException e )
-            {
-                throw new MojoExecutionException( "Error getting system environment variables: ", e );
-            }
-        }
-        return environment;
-    }
-
-    private String getPropertyValue( String k, Properties p, Properties environment )
-        throws MojoFailureException
-    {
-        try
-        {
-            return resolver.getPropertyValue( k, p, environment );
-        }
-        catch ( IllegalArgumentException e )
-        {
-            throw new MojoFailureException( e.getMessage() );
-        }
-    }
-
-    /**
-     * Override-able for test purposes.
-     * 
-     * @return The shell environment variables, can be empty but never <code>null</code>.
-     * @throws IOException If the environment variables could not be queried from the shell.
-     */
-    Properties getSystemEnvVars()
-        throws IOException
-    {
-        return CommandLineUtils.getSystemEnvVars();
-    }
-
-    /**
+     /**
      * Default scope for test access.
      * 
      * @param quiet Set to <code>true</code> if missing files can be skipped.
@@ -321,15 +225,6 @@ public class ReadPropertiesMojo
         this.quiet = quiet;
     }
 
-    /**
-     * Default scope for test access.
-     * 
-     * @param project The test project.
-     */
-    void setProject( MavenProject project )
-    {
-        this.project = project;
-    }
 
     private static abstract class Resource
     {

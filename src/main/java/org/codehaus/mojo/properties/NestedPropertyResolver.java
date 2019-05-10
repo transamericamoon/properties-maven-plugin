@@ -1,5 +1,7 @@
 package org.codehaus.mojo.properties;
 
+import org.apache.maven.project.MavenProject;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,6 +50,28 @@ class NestedPropertyResolver implements IPropertyResolver
     static final String END_PLACEHOLDER = "}";
     static final String DELIMITER = ":";
 
+    private Properties inferredProperties;
+    
+    public NestedPropertyResolver(MavenProject project) {
+    	
+    	inferredProperties = new Properties();
+    	//Add in some basic project properties 
+        inferredProperties.put("project.name", project.getName());
+        inferredProperties.put("project.packaging", project.getPackaging());
+        inferredProperties.put("project.artifactId", project.getArtifactId());
+        inferredProperties.put("project.version", project.getVersion());
+        inferredProperties.put("project.groupId", project.getGroupId());
+        if(project.getBuild().getFinalName() != null) {
+            inferredProperties.put("project.build.finalName", project.getBuild().getFinalName());
+        }
+        if(project.getBuild().getDirectory() != null) {
+            inferredProperties.put("project.build.directory", project.getBuild().getDirectory());
+        }
+        if(project.getBasedir() != null) {
+            inferredProperties.put("project.basedir", project.getBasedir().getAbsolutePath());
+        }
+    }
+    
     public String getPropertyValue( String key, Properties properties, Properties environment )
     {
         Stack<String> visited = new Stack<String>();
@@ -146,6 +170,12 @@ class NestedPropertyResolver implements IPropertyResolver
         if ( value == null && key.startsWith( "env." ) && environment != null )
         {
             value = environment.getProperty( key.substring( 4 ) );
+        }
+        
+        //try inferred properties
+        if ( value == null )
+        {
+        	value = inferredProperties.getProperty( key );
         }
 
         return value;

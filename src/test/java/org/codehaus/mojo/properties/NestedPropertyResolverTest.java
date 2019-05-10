@@ -24,6 +24,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.*;
 import org.junit.Test;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.project.MavenProject;
+
 import java.util.Properties;
 
 /**
@@ -31,7 +33,7 @@ import java.util.Properties;
  */
 public class NestedPropertyResolverTest
 {
-    private final NestedPropertyResolver resolver = new NestedPropertyResolver();
+    private final NestedPropertyResolver resolver = new NestedPropertyResolver(new MavenProject());
 
     @Test
     public void validPlaceholderIsResolved()
@@ -544,6 +546,27 @@ public class NestedPropertyResolverTest
         value = resolver.getPropertyValue( "c", properties, new Properties() );
 
         assertEquals(value, "${unresolved}${unresolved}${unresolved}");
+
+    }
+    
+    @Test
+    public void nestedPropertiesInferredPropertyTest()
+            throws MojoFailureException
+    {
+        Properties properties = new Properties();
+
+        properties.setProperty( "a", "${project.artifactId}" );
+        properties.setProperty( "b", "${project.version}" );
+        properties.setProperty( "c", "${project.groupId}" );
+
+        String value = null;
+
+        value = resolver.getPropertyValue( "a", properties, new Properties() );
+        assertEquals(value, "empty-project");
+        value = resolver.getPropertyValue( "b", properties, new Properties() );
+        assertEquals(value, "0");
+        value = resolver.getPropertyValue( "c", properties, new Properties() );
+        assertEquals(value, "unknown");
 
     }
 }
